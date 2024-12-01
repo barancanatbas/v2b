@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"fmt"
+	"github.com/barancanatbas/v2b/internal/dto"
 	"net/url"
 	"os/exec"
 	"strings"
@@ -15,7 +16,14 @@ const (
 	RefHeadsPrefix   = "refs/heads/"
 )
 
-func ensureHTTPS(repoURL string) (string, error) {
+type GitService struct {
+}
+
+func NewGitService() *GitService {
+	return &GitService{}
+}
+
+func (g *GitService) ensureHTTPS(repoURL string) (string, error) {
 	parsedURL, err := url.Parse(repoURL)
 	if err != nil {
 		return "", fmt.Errorf("invalid URL '%s': %v", repoURL, err)
@@ -28,8 +36,8 @@ func ensureHTTPS(repoURL string) (string, error) {
 	return parsedURL.String(), nil
 }
 
-func GetBranchFromCommit(repoURL, commitHash string) (string, error) {
-	repoURL, err := ensureHTTPS(repoURL)
+func (g *GitService) GetBranch(module *dto.Module) (string, error) {
+	repoURL, err := g.ensureHTTPS(module.Path)
 	if err != nil {
 		return "", fmt.Errorf("failed to ensure HTTPS: %w", err)
 	}
@@ -45,7 +53,7 @@ func GetBranchFromCommit(repoURL, commitHash string) (string, error) {
 
 	lines := strings.Split(out.String(), "\n")
 	for _, line := range lines {
-		if strings.Contains(line, commitHash) {
+		if strings.Contains(line, module.CommitHash) {
 			parts := strings.Fields(line)
 			if len(parts) > 1 {
 				return strings.TrimPrefix(parts[1], RefHeadsPrefix), nil
@@ -53,5 +61,25 @@ func GetBranchFromCommit(repoURL, commitHash string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("branch not found for commit hash: %s", commitHash)
+	return "", fmt.Errorf("branch not found for commit hash: %s", module.CommitHash)
+}
+
+func (g *GitService) IsSpecialBranch(branch string) bool {
+	nonSpecialPrefixes := []string{
+		"refs/tags/",
+		"refs/pull/",
+		"refs/heads/",
+		"refs/remotes/",
+		"refs/merge-requests/",
+		"refs/stash",
+		"HEAD",
+	}
+
+	for _, prefix := range nonSpecialPrefixes {
+		if strings.HasPrefix(branch, prefix) {
+			return false
+		}
+	}
+
+	return true
 }

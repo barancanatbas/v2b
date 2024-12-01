@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"github.com/barancanatbas/v2b/internal/checker"
+	"github.com/barancanatbas/v2b/internal/git"
 	"github.com/barancanatbas/v2b/internal/modules"
+	"github.com/barancanatbas/v2b/internal/tidy"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -9,9 +12,9 @@ import (
 var (
 	logger = logrus.New()
 
-	errFlag     bool
-	specialFlag bool
-	prefixFlag  string
+	errFlag bool
+	special bool
+	prefix  string
 )
 
 var rootCmd = &cobra.Command{
@@ -19,8 +22,9 @@ var rootCmd = &cobra.Command{
 	Short: "v2b is a Go modules management tool",
 	Long:  "A tool to fetch Go modules and determine their branches based on commit hashes",
 	Run: func(cmd *cobra.Command, args []string) {
-		moduleService := modules.NewModule(errFlag, specialFlag, prefixFlag)
-		err := moduleService.FetchAndDisplayModules()
+		_, _, checkerService, _ := initServices()
+
+		err := checkerService.FetchAndDisplayModules()
 		if err != nil {
 			logger.WithError(err).Fatal("Failed to fetch modules")
 		}
@@ -33,8 +37,8 @@ func Execute() error {
 
 func init() {
 	rootCmd.Flags().BoolVar(&errFlag, "err", false, "Print error messages along with successful results")
-	rootCmd.Flags().BoolVar(&specialFlag, "special", false, "Only display special branches (tags, pull requests, etc.)")
-	rootCmd.Flags().StringVar(&prefixFlag, "prefix", "", "Filter modules by prefix")
+	rootCmd.Flags().BoolVar(&special, "special", false, "Only display special branches (tags, pull requests, etc.)")
+	rootCmd.Flags().StringVar(&prefix, "prefix", "", "Filter modules by prefix")
 
 	rootCmd.PersistentFlags().StringP("log-level", "l", "info", "Set the log level (debug, info, warn, error, fatal, panic)")
 	cobra.OnInitialize(initLogger)
@@ -48,4 +52,13 @@ func initLogger() {
 	}
 
 	logger.SetLevel(level)
+}
+
+func initServices() (*modules.ModuleService, *git.GitService, *checker.Checker, *tidy.TidyService) {
+	moduleService := modules.NewModule()
+	gitService := git.NewGitService()
+	checkerService := checker.NewChecker(moduleService, gitService, errFlag, special, prefix)
+	tidyService := tidy.NewTidyService(moduleService, gitService, prefix)
+
+	return moduleService, gitService, checkerService, tidyService
 }
