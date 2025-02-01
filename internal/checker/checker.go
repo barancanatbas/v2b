@@ -2,14 +2,15 @@ package checker
 
 import (
 	"fmt"
+	"os"
+	"strings"
+	"sync"
+
 	"github.com/barancanatbas/v2b/internal/dto"
 	"github.com/barancanatbas/v2b/internal/git"
 	"github.com/barancanatbas/v2b/internal/modules"
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
-	"os"
-	"strings"
-	"sync"
 )
 
 const (
@@ -26,16 +27,16 @@ var (
 )
 
 type Checker struct {
-	printErr      bool
+	showErrors    bool
 	special       bool
 	prefix        string
-	moduleService *modules.ModuleService
-	gitService    *git.GitService
+	moduleService modules.ModuleServiceInterface
+	gitService    git.GitServiceInterface
 }
 
-func NewChecker(moduleService *modules.ModuleService, gitService *git.GitService, printErr, special bool, prefix string) *Checker {
+func NewChecker(moduleService modules.ModuleServiceInterface, gitService git.GitServiceInterface, showErrors, special bool, prefix string) *Checker {
 	return &Checker{
-		printErr:      printErr,
+		showErrors:    showErrors,
 		special:       special,
 		prefix:        prefix,
 		moduleService: moduleService,
@@ -118,7 +119,7 @@ func (c *Checker) appendSpecialBranchResults(result, versionResults *sync.Map) {
 }
 
 func (c *Checker) appendErrResults(result, errResults *sync.Map) {
-	if !c.printErr {
+	if !c.showErrors {
 		return
 	}
 
