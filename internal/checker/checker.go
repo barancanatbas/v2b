@@ -66,7 +66,7 @@ func (c *Checker) FetchAndDisplayModules() error {
 			}
 		}
 
-		if c.specialBranchesOnly && !c.gitService.IsSpecialBranch(branch) {
+		if c.special && !c.gitService.IsSpecialBranch(branch) {
 			continue
 		}
 

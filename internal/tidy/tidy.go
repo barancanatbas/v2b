@@ -61,18 +61,21 @@ func (t *TidyService) processModule(mod *dto.Module, wg *sync.WaitGroup) {
 
 	branch, err := t.gitService.GetBranch(mod)
 	if err != nil {
-		fmt.Println("Failed to get branch:", err)
+		fmt.Printf("Failed to get branch for module %s: %v\n", mod.Path, err)
 		return
 	}
 
 	if !t.gitService.IsSpecialBranch(branch) {
-		fmt.Println("Skipping special branch:", branch)
+		fmt.Printf("Skipping non-special branch %s for module %s\n", branch, mod.Path)
 		return
 	}
 
 	mod.Branch = &branch
 
-	_ = t.moduleService.TidyForModule(*mod)
+	if err := t.moduleService.TidyForModule(*mod); err != nil {
+		fmt.Printf("Failed to update module %s: %v\n", mod.Path, err)
+		return
+	}
 }
 
 func (t *TidyService) UpdateModuleBranch(modulePath, branchName string) error {

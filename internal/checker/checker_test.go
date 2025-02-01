@@ -2,7 +2,6 @@ package checker
 
 import (
 	"errors"
-	"strings"
 	"sync"
 	"testing"
 
@@ -13,80 +12,108 @@ import (
 
 func TestChecker_FetchAndDisplayModules(t *testing.T) {
 	tests := []struct {
-		name          string
-		modules       []dto.Module
-		moduleErr     error
-		getBranchFunc func(mod *dto.Module) (string, error)
-		isSpecialFunc func(branch string) bool
-		showErrors    bool
-		special       bool
-		prefix        string
-		expectedError bool
+		name        string
+		showErrors  bool
+		special     bool
+		prefix      string
+		setupMocks  func(*mocks.MockModuleService, *mocks.MockGitService)
+		expectError bool
 	}{
 		{
-			name: "successful fetch and display",
-			modules: []dto.Module{
-				{Path: "github.com/test/mod1", Version: "v1.0.0-abc123"},
-				{Path: "github.com/test/mod2", Version: "v2.0.0-def456"},
+			name: "successful_fetch_and_display",
+			setupMocks: func(mm *mocks.MockModuleService, mg *mocks.MockGitService) {
+				mm.GetGoModulesFunc = func(prefix string) ([]dto.Module, error) {
+					return []dto.Module{
+						{
+							ID:         1,
+							Path:       "github.com/test/mod1",
+							Version:    "v1.0.0-abc123",
+							CommitHash: "abc123",
+						},
+						{
+							ID:         2,
+							Path:       "github.com/test/mod2",
+							Version:    "v2.0.0-def456",
+							CommitHash: "def456",
+						},
+					}, nil
+				}
+				mg.GetBranchFunc = func(module *dto.Module) (string, error) {
+					return "main", nil
+				}
 			},
-			getBranchFunc: func(mod *dto.Module) (string, error) {
-				return "main", nil
+		},
+		{
+			name: "module_service_error",
+			setupMocks: func(mm *mocks.MockModuleService, mg *mocks.MockGitService) {
+				mm.GetGoModulesFunc = func(prefix string) ([]dto.Module, error) {
+					return nil, assert.AnError
+				}
 			},
-			isSpecialFunc: func(branch string) bool {
-				return false
-			},
+			expectError: true,
+		},
+		{
+			name:       "git_service_error_with_show_errors",
 			showErrors: true,
-			special:    false,
-			prefix:     "",
+			setupMocks: func(mm *mocks.MockModuleService, mg *mocks.MockGitService) {
+				mm.GetGoModulesFunc = func(prefix string) ([]dto.Module, error) {
+					return []dto.Module{
+						{
+							ID:         1,
+							Path:       "github.com/test/mod1",
+							Version:    "v1.0.0-abc123",
+							CommitHash: "abc123",
+						},
+					}, nil
+				}
+				mg.GetBranchFunc = func(module *dto.Module) (string, error) {
+					return "", assert.AnError
+				}
+			},
 		},
 		{
-			name:          "module service error",
-			moduleErr:     errors.New("failed to fetch modules"),
-			expectedError: true,
-		},
-		{
-			name: "git service error with show errors",
-			modules: []dto.Module{
-				{Path: "github.com/test/mod1", Version: "v1.0.0-abc123"},
-			},
-			getBranchFunc: func(mod *dto.Module) (string, error) {
-				return "", errors.New("git error")
-			},
-			showErrors: true,
-		},
-		{
-			name: "special branches only",
-			modules: []dto.Module{
-				{Path: "github.com/test/mod1", Version: "v1.0.0-abc123"},
-				{Path: "github.com/test/mod2", Version: "v2.0.0-def456"},
-			},
-			getBranchFunc: func(mod *dto.Module) (string, error) {
-				return "feature/test", nil
-			},
-			isSpecialFunc: func(branch string) bool {
-				return strings.HasPrefix(branch, "feature/")
-			},
+			name:    "special_branches_only",
 			special: true,
+			setupMocks: func(mm *mocks.MockModuleService, mg *mocks.MockGitService) {
+				mm.GetGoModulesFunc = func(prefix string) ([]dto.Module, error) {
+					return []dto.Module{
+						{
+							ID:         1,
+							Path:       "github.com/test/mod1",
+							Version:    "v1.0.0-abc123",
+							CommitHash: "abc123",
+						},
+						{
+							ID:         2,
+							Path:       "github.com/test/mod2",
+							Version:    "v2.0.0-def456",
+							CommitHash: "def456",
+						},
+					}, nil
+				}
+				mg.GetBranchFunc = func(module *dto.Module) (string, error) {
+					return "feature/test", nil
+				}
+				mg.IsSpecialBranchFunc = func(branch string) bool {
+					return true
+				}
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockModule := &mocks.MockModuleService{
-				GetGoModulesFunc: func(prefix string) ([]dto.Module, error) {
-					return tt.modules, tt.moduleErr
-				},
-			}
+			mockModule := &mocks.MockModuleService{}
+			mockGit := &mocks.MockGitService{}
 
-			mockGit := &mocks.MockGitService{
-				GetBranchFunc:       tt.getBranchFunc,
-				IsSpecialBranchFunc: tt.isSpecialFunc,
+			if tt.setupMocks != nil {
+				tt.setupMocks(mockModule, mockGit)
 			}
 
 			checker := NewChecker(mockModule, mockGit, tt.showErrors, tt.special, tt.prefix)
 			err := checker.FetchAndDisplayModules()
 
-			if tt.expectedError {
+			if tt.expectError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)

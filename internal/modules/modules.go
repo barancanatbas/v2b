@@ -82,17 +82,12 @@ func (m *ModuleService) TidyForModule(module dto.Module) error {
 	cmd := exec.Command("go", "get", module.Path+"@"+*module.Branch)
 	cmd.Dir = module.Path
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to run 'go mod tidy': %v", err)
-	}
-
-	outputByte, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to run 'go mod tidy': %v", err)
+		return fmt.Errorf("failed to run 'go get': %v, output: %s", err, string(output))
 	}
 
-	fmt.Println(string(outputByte))
-
+	fmt.Println(string(output))
 	return nil
 }
 
