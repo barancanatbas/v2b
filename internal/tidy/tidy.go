@@ -105,3 +105,31 @@ func (t *TidyService) UpdateModuleBranch(modulePath, branchName string) error {
 
 	return nil
 }
+
+func (t *TidyService) UpdateModuleByID(moduleID int) error {
+	// Get all modules
+	modules, err := t.moduleService.GetGoModules("")
+	if err != nil {
+		return fmt.Errorf("failed to get modules: %w", err)
+	}
+
+	// Find the target module
+	var targetModule *dto.Module
+	for _, mod := range modules {
+		if mod.ID == moduleID {
+			targetModule = &mod
+			break
+		}
+	}
+
+	if targetModule == nil {
+		return fmt.Errorf("module with ID %d not found", moduleID)
+	}
+
+	// Run go get for the module
+	if err := t.moduleService.TidyForModule(*targetModule); err != nil {
+		return fmt.Errorf("failed to update module %s (ID: %d): %w", targetModule.Path, moduleID, err)
+	}
+
+	return nil
+}

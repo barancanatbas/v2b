@@ -24,6 +24,11 @@ func (m *ModuleService) GetGoModules(prefix string) ([]dto.Module, error) {
 	if err == nil {
 		modules, err := m.parseGoMod(content)
 		if err == nil {
+			// Assign IDs to modules
+			for i := range modules {
+				modules[i].ID = i + 1
+			}
+
 			// Filter by prefix if specified
 			if prefix != "" {
 				var filtered []dto.Module
@@ -48,6 +53,7 @@ func (m *ModuleService) GetGoModules(prefix string) ([]dto.Module, error) {
 
 	var modules []dto.Module
 	decoder := json.NewDecoder(&out)
+	id := 1
 	for decoder.More() {
 		var mod dto.Module
 		if err := decoder.Decode(&mod); err != nil {
@@ -60,6 +66,8 @@ func (m *ModuleService) GetGoModules(prefix string) ([]dto.Module, error) {
 			}
 		}
 
+		mod.ID = id
+		id++
 		modules = append(modules, mod)
 	}
 

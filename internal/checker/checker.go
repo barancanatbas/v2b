@@ -3,6 +3,7 @@ package checker
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -47,31 +48,37 @@ func NewChecker(moduleService modules.ModuleServiceInterface, gitService git.Git
 func (c *Checker) FetchAndDisplayModules() error {
 	modules, err := c.moduleService.GetGoModules(c.prefix)
 	if err != nil {
-		return fmt.Errorf("failed to fetch Go modules: %w", err)
+		return err
 	}
 
-	logger.Println("Fetching special names for each module...")
+	fmt.Println("Fetching special names for each module...")
 
-	wg := sync.WaitGroup{}
-	results := sync.Map{}
-	versionResults := sync.Map{}
-	errResults := sync.Map{}
-	moduleChannel := make(chan dto.Module, len(modules))
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"ID", "MODULE PATH", "VERSION", "BRANCH"})
+	table.SetBorder(true)
 
-	for i := 0; i < workerPoolSize; i++ {
-		go c.worker(moduleChannel, &wg, &results, &versionResults, &errResults)
+	for _, module := range modules {
+		branch := "Not-Found"
+
+		if !c.showErrors {
+			if branchName, err := c.gitService.GetBranch(&module); err == nil {
+				branch = branchName
+			}
+		}
+
+		if c.specialBranchesOnly && !c.gitService.IsSpecialBranch(branch) {
+			continue
+		}
+
+		table.Append([]string{
+			strconv.Itoa(module.ID),
+			module.Path,
+			module.Version,
+			branch,
+		})
 	}
 
-	for _, mod := range modules {
-		wg.Add(1)
-		moduleChannel <- mod
-	}
-
-	wg.Wait()
-	close(moduleChannel)
-
-	c.generateTable(&results, &versionResults, &errResults)
-
+	table.Render()
 	return nil
 }
 

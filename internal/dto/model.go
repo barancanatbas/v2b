@@ -1,8 +1,9 @@
 package dto
 
 type Module struct {
-	Path       string  `json:"Path"`
-	Version    string  `json:"Version"`
-	CommitHash string  `json:"CommitHash"`
-	Branch     *string `json:"Branch"`
+	ID         int     `json:"id"`
+	Path       string  `json:"path"`
+	Version    string  `json:"version"`
+	CommitHash string  `json:"commit_hash"`
+	Branch     *string `json:"branch,omitempty"`
 }
