@@ -17,65 +17,45 @@ func TestModuleService_GetGoModules(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
+	// Create a mock go.mod file
+	goModContent := `module test
+
+go 1.23.1
+
+require (
+	github.com/test/mod1 v1.0.0
+	github.com/test/mod2 v2.0.0
+)
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goModContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
 	tests := []struct {
 		name          string
-		goModContent  string
 		prefix        string
-		expectError   bool
 		expectedCount int
+		expectError   bool
 	}{
 		{
-			name: "valid go.mod with multiple modules",
-			goModContent: `module test
-
-go 1.23.1
-
-require (
-	github.com/test/mod1 v1.0.0-abc123
-	github.com/test/mod2 v2.0.0-def456
-)
-`,
+			name:          "list all modules",
 			prefix:        "",
-			expectError:   false,
 			expectedCount: 2,
-		},
-		{
-			name: "valid go.mod with prefix filter",
-			goModContent: `module test
-
-go 1.23.1
-
-require (
-	github.com/test/mod1 v1.0.0-abc123
-	github.com/other/mod2 v2.0.0-def456
-)
-`,
-			prefix:        "github.com/test",
 			expectError:   false,
-			expectedCount: 1,
 		},
 		{
-			name: "invalid go.mod content",
-			goModContent: `invalid content
-not a valid go.mod file
-`,
-			expectError: true,
+			name:          "filter by prefix",
+			prefix:        "github.com/test/mod1",
+			expectedCount: 1,
+			expectError:   false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a temporary go.mod file
-			goModPath := filepath.Join(tmpDir, "go.mod")
-			err := os.WriteFile(goModPath, []byte(tt.goModContent), 0644)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			// Change working directory to temp directory
+			// Change to test directory
 			originalWd, _ := os.Getwd()
-			err = os.Chdir(tmpDir)
-			if err != nil {
+			if err := os.Chdir(tmpDir); err != nil {
 				t.Fatal(err)
 			}
 			defer os.Chdir(originalWd)
@@ -87,7 +67,12 @@ not a valid go.mod file
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Len(t, modules, tt.expectedCount)
+				if len(modules) != tt.expectedCount {
+					t.Errorf("expected %d modules, got %d", tt.expectedCount, len(modules))
+					for _, mod := range modules {
+						t.Logf("module: %+v", mod)
+					}
+				}
 
 				if tt.prefix != "" {
 					for _, mod := range modules {

@@ -2,10 +2,11 @@ package tidy
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/barancanatbas/v2b/internal/dto"
 	"github.com/barancanatbas/v2b/internal/git"
 	"github.com/barancanatbas/v2b/internal/modules"
-	"sync"
 )
 
 const (
@@ -13,12 +14,12 @@ const (
 )
 
 type TidyService struct {
-	moduleService *modules.ModuleService
-	gitService    *git.GitService
+	moduleService modules.ModuleServiceInterface
+	gitService    git.GitServiceInterface
 	prefix        string
 }
 
-func NewTidyService(moduleService *modules.ModuleService, gitService *git.GitService, prefix string) *TidyService {
+func NewTidyService(moduleService modules.ModuleServiceInterface, gitService git.GitServiceInterface, prefix string) *TidyService {
 	return &TidyService{
 		moduleService: moduleService,
 		gitService:    gitService,
@@ -72,4 +73,35 @@ func (t *TidyService) processModule(mod *dto.Module, wg *sync.WaitGroup) {
 	mod.Branch = &branch
 
 	_ = t.moduleService.TidyForModule(*mod)
+}
+
+func (t *TidyService) UpdateModuleBranch(modulePath, branchName string) error {
+	// Get all modules
+	modules, err := t.moduleService.GetGoModules("")
+	if err != nil {
+		return fmt.Errorf("failed to get modules: %w", err)
+	}
+
+	// Find the target module
+	var targetModule *dto.Module
+	for _, mod := range modules {
+		if mod.Path == modulePath {
+			targetModule = &mod
+			break
+		}
+	}
+
+	if targetModule == nil {
+		return fmt.Errorf("module %s not found", modulePath)
+	}
+
+	// Update the module's branch
+	targetModule.Branch = &branchName
+
+	// Run go get with the specified branch
+	if err := t.moduleService.TidyForModule(*targetModule); err != nil {
+		return fmt.Errorf("failed to update module %s to branch %s: %w", modulePath, branchName, err)
+	}
+
+	return nil
 }

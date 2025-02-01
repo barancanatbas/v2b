@@ -1,0 +1,81 @@
+{
+    "project_name": "v2b",
+    "language": "Go",
+    "version": "1.23.1",
+    "type": "CLI Application",
+    "repository": "github.com/barancanatbas/v2b",
+    
+    "architecture": {
+        "pattern": "Command Pattern",
+        "style": "Modular Monolith",
+        "layers": [
+            "Command Layer (cmd)",
+            "Internal Business Logic (internal)",
+            "Public Packages (pkg)"
+        ]
+    },
+
+    "directory_structure": {
+        "cmd/": {
+            "description": "Command implementations",
+            "files": {
+                "root.go": "Main command handler and configuration",
+                "tidy.go": "Project cleanup/organization command"
+            }
+        },
+        "internal/": {
+            "description": "Private application code",
+            "access": "project-only"
+        },
+        "pkg/": {
+            "description": "Public packages",
+            "access": "importable-by-other-projects"
+        }
+    },
+
+    "dependencies": {
+        "primary": {
+            "github.com/spf13/cobra": "CLI framework",
+            "github.com/sirupsen/logrus": "Logging system"
+        },
+        "ui": {
+            "github.com/rivo/tview": "Terminal UI framework",
+            "github.com/olekukonko/tablewriter": "Table formatting",
+            "github.com/fatih/color": "Terminal color output"
+        }
+    },
+
+    "features": {
+        "cli": {
+            "command_structure": "Hierarchical",
+            "interface": "Terminal based",
+            "output_formatting": [
+                "Colored output",
+                "Table formatting",
+                "Interactive UI capabilities"
+            ]
+        },
+        "logging": {
+            "system": "logrus",
+            "capabilities": [
+                "Structured logging",
+                "Multiple output formats",
+                "Log levels"
+            ]
+        }
+    },
+
+    "code_organization": {
+        "entry_point": "main.go",
+        "dependency_management": {
+            "go.mod": "Module definition and dependencies",
+            "go.sum": "Dependency verification"
+        }
+    },
+
+    "development_practices": {
+        "error_handling": "Standard Go error handling",
+        "dependency_injection": "Manual DI",
+        "code_style": "Standard Go conventions"
+    }
+} 

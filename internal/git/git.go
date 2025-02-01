@@ -3,10 +3,12 @@ package git
 import (
 	"bytes"
 	"fmt"
-	"github.com/barancanatbas/v2b/internal/dto"
 	"net/url"
+	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/barancanatbas/v2b/internal/dto"
 )
 
 const (
@@ -37,6 +39,24 @@ func (g *GitService) ensureHTTPS(repoURL string) (string, error) {
 }
 
 func (g *GitService) GetBranch(module *dto.Module) (string, error) {
+	if module.CommitHash == "" {
+		return "", fmt.Errorf("commit hash is empty")
+	}
+
+	// Check if path is a local directory
+	if info, err := os.Stat(module.Path); err == nil && info.IsDir() {
+		// For local repositories, use git directly
+		cmd := exec.Command(GitCommand, "rev-parse", "--abbrev-ref", "HEAD")
+		cmd.Dir = module.Path
+		out, err := cmd.Output()
+		if err != nil {
+			return "", fmt.Errorf("failed to get branch: %w", err)
+		}
+
+		return strings.TrimSpace(string(out)), nil
+	}
+
+	// For remote repositories, use ls-remote
 	repoURL, err := g.ensureHTTPS(module.Path)
 	if err != nil {
 		return "", fmt.Errorf("failed to ensure HTTPS: %w", err)
@@ -65,21 +85,32 @@ func (g *GitService) GetBranch(module *dto.Module) (string, error) {
 }
 
 func (g *GitService) IsSpecialBranch(branch string) bool {
-	nonSpecialPrefixes := []string{
-		"refs/tags/",
-		"refs/pull/",
-		"refs/heads/",
-		"refs/remotes/",
-		"refs/merge-requests/",
-		"refs/stash",
-		"HEAD",
+	standardBranches := []string{
+		"main",
+		"master",
+		"develop",
 	}
 
-	for _, prefix := range nonSpecialPrefixes {
-		if strings.HasPrefix(branch, prefix) {
+	for _, std := range standardBranches {
+		if branch == std {
 			return false
 		}
 	}
 
-	return true
+	specialPrefixes := []string{
+		"feature/",
+		"release/",
+		"hotfix/",
+		"bugfix/",
+		"tags/",
+		"pull/",
+	}
+
+	for _, prefix := range specialPrefixes {
+		if strings.HasPrefix(branch, prefix) {
+			return true
+		}
+	}
+
+	return false
 }

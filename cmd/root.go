@@ -12,9 +12,9 @@ import (
 var (
 	logger = logrus.New()
 
-	errFlag bool
-	special bool
-	prefix  string
+	ignoreErrors bool
+	special      bool
+	prefix       string
 )
 
 var rootCmd = &cobra.Command{
@@ -36,7 +36,7 @@ func Execute() error {
 }
 
 func init() {
-	rootCmd.Flags().BoolVar(&errFlag, "err", false, "Print error messages along with successful results")
+	rootCmd.Flags().BoolVar(&ignoreErrors, "ignore-errors", false, "Hide error messages from the output")
 	rootCmd.Flags().BoolVar(&special, "special", false, "Only display special branches (tags, pull requests, etc.)")
 	rootCmd.Flags().StringVar(&prefix, "prefix", "", "Filter modules by prefix")
 
@@ -57,7 +57,7 @@ func initLogger() {
 func initServices() (*modules.ModuleService, *git.GitService, *checker.Checker, *tidy.TidyService) {
 	moduleService := modules.NewModule()
 	gitService := git.NewGitService()
-	checkerService := checker.NewChecker(moduleService, gitService, errFlag, special, prefix)
+	checkerService := checker.NewChecker(moduleService, gitService, !ignoreErrors, special, prefix)
 	tidyService := tidy.NewTidyService(moduleService, gitService, prefix)
 
 	return moduleService, gitService, checkerService, tidyService
